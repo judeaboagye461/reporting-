@@ -28,5 +28,4 @@ jobs:
       - name: Build Docker image
         run: docker build -t reporting-service:ci .
 
-      - name: Run tests inside container
-        run: docker run --rm reporting-service:ci
+      - run: docker run --rm reporting-service:ci python -m pytest -v
