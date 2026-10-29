@@ -9,6 +9,7 @@ COPY reporting.py .
 COPY test_reporting.py .
 COPY app.py .
 COPY test_app.py .
+COPY database.py .
 
 EXPOSE 8000
 

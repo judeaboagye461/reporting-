@@ -1,8 +1,24 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from app import app
+from app import app, get_record_fetcher
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def override_database():
+    def fake_fetch_records(start_date, end_date):
+        return [
+            {"distribution_date": "2026-09-01", "weight": 100},
+            {"distribution_date": "2026-09-15", "weight": 250},
+            {"distribution_date": "2026-09-30", "weight": 150},
+        ]
+
+    app.dependency_overrides[get_record_fetcher] = lambda: fake_fetch_records
+
+    yield
+
+    app.dependency_overrides.pop(get_record_fetcher, None)
 
 
 def test_health_endpoint():
