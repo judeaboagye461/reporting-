@@ -1,3 +1,5 @@
+import logging
+import psycopg
 from fastapi import Depends
 from database import fetch_distributions
 from datetime import date
@@ -5,6 +7,8 @@ from datetime import date
 from fastapi import FastAPI, HTTPException
 
 from reporting import calculate_total_weight
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -29,7 +33,14 @@ def report(
             detail="Start date must be on or before end date.",
         )
 
-    records = fetch_records(start_date, end_date)
+    try:
+        records = fetch_records(start_date, end_date)
+    except psycopg.OperationalError:
+        logger.exception("Database operation failed while generating report")
+        raise HTTPException(
+        status_code=503,
+        detail="Reporting is temporarily unavailable. Please try again later.",
+    ) from None
    
     total_weight = calculate_total_weight(records, start_date, end_date)
 

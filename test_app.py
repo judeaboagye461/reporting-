@@ -1,4 +1,5 @@
 import pytest
+import psycopg
 from fastapi.testclient import TestClient
 
 from app import app, get_record_fetcher
@@ -52,3 +53,23 @@ def test_report_rejects_reversed_dates():
     assert response.json()["detail"] == (
         "Start date must be on or before end date."
     )
+
+def test_report_returns_503_when_database_is_unavailable():
+    def unavailable_database(start_date, end_date):
+        raise psycopg.OperationalError("Simulated database outage")
+
+    app.dependency_overrides[get_record_fetcher] = (
+        lambda: unavailable_database
+    )
+
+    response = client.get(
+        "/reports",
+        params={"start_date": "2026-09-01", "end_date": "2026-09-30"},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": (
+            "Reporting is temporarily unavailable. Please try again later."
+        )
+    }
