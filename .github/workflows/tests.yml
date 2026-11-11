@@ -33,11 +33,15 @@ jobs:
       - name: Verify the report against PostgreSQL
         shell: bash
         run: |
-          curl --fail --silent --show-error \
-            --retry 10 --retry-connrefused --retry-delay 1 --max-time 10 \
+           echo "Waiting for the reporting API to be ready"
+           curl --fail --silent --show-error \
+           --retry 15 --retry-all-errors --retry-delay 1 --max-time 10 \
+           http://127.0.0.1:8000/ready
+           curl --fail --silent --show-error \
+             --retry 10 --retry-connrefused --retry-delay 1 --max-time 10 \
             http://127.0.0.1:8000/ready
 
-          curl --fail --silent --show-error --max-time 10 \
+           curl --fail --silent --show-error --max-time 10 \
             "http://127.0.0.1:8000/reports?start_date=2026-09-01&end_date=2026-09-30" \
             | python -c 'import json, sys; total = json.load(sys.stdin)["total_weight"]; assert total == 500, f"Expected 500, got {total}"; print(f"Verified September total: {total}")'
 
