@@ -32,9 +32,9 @@ jobs:
 
       - name: Start and seed the integration environment
         run: |
-          docker compose up -d --build
-          docker compose exec -T db psql -U reporting_user -d reporting \
-            -v ON_ERROR_STOP=1 < seed.sql
+          docker compose -f compose.yaml config --services
+          docker compose -f compose.yaml up -d --build db api
+          
 
       - name: Wait for the API to be ready
         run: |
