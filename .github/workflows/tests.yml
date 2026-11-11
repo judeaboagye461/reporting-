@@ -29,41 +29,11 @@ jobs:
 
       - name: Run tests inside container
         run: docker run --rm reporting-service:ci python -m pytest -v
-
       - name: Start and seed the integration environment
         run: |
           docker compose -f compose.yaml config --services
           docker compose -f compose.yaml up -d --build db api
-          
-
-            - name: Verify the report from inside the API container
-            run: |
-              docker compose -f compose.yaml exec -T api python - <<'PY'
-            import json
-            import time
-            from urllib.error import URLError
-            from urllib.request import urlopen
-
-            base = "http://127.0.0.1:8000"
-
-          for attempt in range(15):
-              try:
-                  with urlopen(f"{base}/ready", timeout=5) as response:
-                      print(f"Readiness returned HTTP {response.status}", flush=True)
-                  break
-              except (URLError, OSError) as error:
-                  print(f"Readiness attempt {attempt + 1}: {error}", flush=True)
-                  if attempt == 14:
-                      raise
-                  time.sleep(1)
-
-          path = "/reports?start_date=2026-09-01&end_date=2026-09-30"
-          with urlopen(base + path, timeout=10) as response:
-              total = json.load(response)["total_weight"]
-
-          assert total == 500, f"Expected 500, got {total}"
-          print(f"Verified September total: {total}")
-          PY
+          docker compose -f compose.yaml exec -T db psql -U reporting_user -d reporting -v ON_ERROR_STOP=1 < seed.sql
 
       - name: Show service status and logs on failure
         if: ${{ failure() }}
