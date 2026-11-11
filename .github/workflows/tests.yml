@@ -24,37 +24,38 @@ jobs:
       - name: Run tests
         run: python -m pytest -v
 
+      - name: Build Docker image
+        run: docker build -t reporting-service:ci .
+
+      - name: Run tests inside container
+        run: docker run --rm reporting-service:ci python -m pytest -v
+
       - name: Start and seed the integration environment
         run: |
           docker compose up -d --build
           docker compose exec -T db psql -U reporting_user -d reporting \
             -v ON_ERROR_STOP=1 < seed.sql
 
+      - name: Wait for the API to be ready
+        run: |
+          curl --fail --silent --show-error \
+            --retry 15 --retry-all-errors --retry-delay 1 \
+            --retry-max-time 45 --max-time 5 \
+            http://127.0.0.1:8000/ready
+
       - name: Verify the report against PostgreSQL
         shell: bash
         run: |
-           echo "Waiting for the reporting API to be ready"
-           curl --fail --silent --show-error \
-           --retry 15 --retry-all-errors --retry-delay 1 --max-time 10 \
-           http://127.0.0.1:8000/ready
-           curl --fail --silent --show-error \
-             --retry 10 --retry-connrefused --retry-delay 1 --max-time 10 \
-            http://127.0.0.1:8000/ready
-
-           curl --fail --silent --show-error --max-time 10 \
+          curl --fail --silent --show-error --max-time 10 \
             "http://127.0.0.1:8000/reports?start_date=2026-09-01&end_date=2026-09-30" \
             | python -c 'import json, sys; total = json.load(sys.stdin)["total_weight"]; assert total == 500, f"Expected 500, got {total}"; print(f"Verified September total: {total}")'
 
-      - name: Show service logs on failure
+      - name: Show service status and logs on failure
         if: ${{ failure() }}
-        run: docker compose logs --tail=50 api db
+        run: |
+          docker compose ps -a --no-trunc
+          docker compose logs --tail=50 api db
 
       - name: Remove the CI containers and test data
         if: ${{ always() }}
         run: docker compose down -v
-
-
-      - name: Build Docker image
-        run: docker build -t reporting-service:ci .
-
-      - run: docker run --rm reporting-service:ci python -m pytest -v
