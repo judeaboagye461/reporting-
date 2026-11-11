@@ -2,7 +2,7 @@ import pytest
 import psycopg
 from fastapi.testclient import TestClient
 
-from app import app, get_record_fetcher
+from app import app, get_record_fetcher, get_database_checker
 
 client = TestClient(app)
 
@@ -73,3 +73,36 @@ def test_report_returns_503_when_database_is_unavailable():
             "Reporting is temporarily unavailable. Please try again later."
         )
     }
+
+def test_ready_when_database_is_available():
+    def available_database():
+        return None
+
+    app.dependency_overrides[get_database_checker] = (
+        lambda: available_database
+    )
+
+    try:
+        response = client.get("/ready")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ready"}
+    finally:
+        app.dependency_overrides.pop(get_database_checker, None)
+
+
+def test_ready_returns_503_when_database_is_unavailable():
+    def unavailable_database():
+        raise psycopg.OperationalError("Simulated database outage")
+
+    app.dependency_overrides[get_database_checker] = (
+        lambda: unavailable_database
+    )
+
+    try:
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json() == {"detail": "Database is unavailable."}
+    finally:
+        app.dependency_overrides.pop(get_database_checker, None)

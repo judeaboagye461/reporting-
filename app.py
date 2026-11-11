@@ -1,7 +1,7 @@
 import logging
 import psycopg
 from fastapi import Depends
-from database import fetch_distributions
+from database import check_database, fetch_distributions
 from datetime import date
 
 from fastapi import FastAPI, HTTPException
@@ -14,6 +14,9 @@ app = FastAPI()
 
 def get_record_fetcher():
     return fetch_distributions
+
+def get_database_checker():
+    return check_database
 
 
 @app.get("/health")
@@ -49,3 +52,17 @@ def report(
         "end_date": end_date,
         "total_weight": total_weight,
     }
+
+
+@app.get("/ready")
+def ready(check=Depends(get_database_checker)):
+    try:
+        check()
+    except psycopg.OperationalError:
+        logger.exception("Database readiness check failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Database is unavailable.",
+        ) from None
+
+    return {"status": "ready"}

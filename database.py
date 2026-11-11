@@ -27,3 +27,12 @@ def fetch_distributions(start_date: date, end_date: date):
                 }
                 for distribution_date, weight in cursor.fetchall()
             ]
+        
+def check_database():
+    with psycopg.connect(
+        os.environ["DATABASE_URL"],
+        connect_timeout=5,
+    ) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
